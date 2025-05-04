@@ -25,29 +25,29 @@ class BaseSettings(BaseModel):
     agent: str 
 
     set_system_prompt: bool = Field(
-        title="Force system prompt",
+        title="Force system prompt (Only for Native FC)",
         default=False,
         description="Whether to use the following system prompt. This will override the default system prompt and the one from the plugins.",
     )
     system_prompt: str = Field(
-        title="System Prompt",
+        title="System Prompt (Only for Native FC)",
         default=MAIN_PROMPT_PREFIX,
         description="Describe the cheshire cat personality and behavior.",
         extra={"type": "TextArea"},        
     )
     set_tools_prompt: bool = Field(
-        title="Force tools prompt",
+        title="Force tools prompt (Only for Native FC)",
         default=False,
         description="Whether to use the following tools prompt. This will override the default tools prompt and the one from the plugins.",
     )
     tools_prompt: str = Field(
-        title="Tools Prompt",
+        title="Tools Prompt (Only for Native FC)",
         default=BASE_TOOL_PROMPT,
         description="Describe the tools available to the cheshire cat.",
         extra={"type": "TextArea"},        
     )
     max_tools_call: int = Field(
-        title="Max tools call",
+        title="Max tools call (Only for Native FC)",
         default=3,
         description="Maximum number of tools to call in a single interaction.",
     )

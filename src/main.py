@@ -13,7 +13,7 @@ from .settings import BaseSettings, load_allowed_agents
 def plugin_factory_allowed_agents(agents: List[Tuple[BaseAgent, str, str]], cat) -> list:
     agents.extend([
         (CatMainAgent, "DEFAULT", "Default agent"),
-        (NativeFcAgent, "STANDARD_WITH_FC", "Default with native function calling")
+        (NativeFcAgent, "STANDARD_WITH_FC", "Native Function Calling")
     ])
     return agents
 
