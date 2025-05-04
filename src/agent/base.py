@@ -2,6 +2,12 @@ import inspect
 import functools
 from typing import Dict, List, Set, Callable, Any, Tuple
 
+from langchain.prompts import ChatPromptTemplate
+from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.tools import StructuredTool, Tool
+from langchain_core.runnables import RunnableConfig, RunnableLambda
+from langchain_core.documents import Document
+
 from cat.log import log
 from cat.mad_hatter.plugin import Plugin
 from cat.mad_hatter.mad_hatter import MadHatter
@@ -120,3 +126,154 @@ class NewBaseAgent(BaseAgent):
                 allowed_procedures[procedure.name] = procedure
 
         return allowed_procedures
+    
+
+class LangchainBaseAgent(NewBaseAgent):
+
+    def run_chain(
+        self,
+        cat,
+        system_prompt: str,
+        procedures: List[CatTool | CatForm] = [],
+        chat_history: List[CatMessage | HumanMessage] | None = None,
+        max_procedures_calls: int = 1,
+        chain_name: str = "Langchain Chain",
+    ) -> str | List[LLMAction]:
+
+        if chat_history is None:
+            chat_history = cat.working_memory.history[-MAX_WORKING_HISTORY_LENGTH:]
+        
+        langchain_chat_history = []
+        for message in chat_history:
+            ml = message.langchainfy()
+            if isinstance(ml, list):
+                langchain_chat_history.extend(ml)
+            else:
+                langchain_chat_history.append(ml)
+        
+        # Create the prompt for the LLM
+        prompt = ChatPromptTemplate(
+            messages=[
+                SystemMessage(content=system_prompt.rstrip().lstrip()),
+                # Add chat history to provide context
+                *(langchain_chat_history),
+            ]
+        )
+
+        if procedures is not None and len(procedures) > 0:
+            # Add tool to the prompt
+            llm = cat._llm.bind_tools(self._to_langchain_tools(procedures))  # parallel_tool_calls=False
+        else:
+            llm = cat._llm
+
+        # Create the chain for tool selection
+        chain = (
+            prompt
+            | RunnableLambda(lambda x: langchain_log_prompt(x, chain_name))
+            | llm
+            | RunnableLambda(lambda x: langchain_log_output(x, f"{chain_name} - LLM output"))
+        )
+        
+        # Execute the chain to get the LLM's action choice
+        res: AIMessage = chain.invoke(
+            {},
+            config=RunnableConfig(callbacks=[
+                ModelInteractionHandler(cat, get_caller_info(skip=1))
+            ])
+        )
+
+        if len(res.tool_calls) > 0:
+            return [
+                    LLMAction(
+                        name=res.tool_calls[i]["name"],
+                        input=res.tool_calls[i]["args"],
+                        id=res.tool_calls[i]["id"],
+                    )
+                    for i in range(min(max_procedures_calls, len(res.tool_calls)))
+                ]
+        
+        if isinstance(res.content, str):
+            # If the LLM output is a string, return it directly
+            return res.content
+        
+        raise ValueError(f"Unexpected LLM output: {res.content}")
+    
+    def _to_langchain_tools(self, procedures: List[CatTool | CatForm]) -> List[Tool]:
+        """
+        Prepare a list of allowed procedures as LangChain tools.
+        
+        Args:
+            cat: The CAT instance containing tools and procedures
+            
+        Returns:
+            List[Tool]: List of LangChain tools representing allowed procedures
+        """
+
+        langchain_tools: List[Tool] = []
+        for p in procedures:
+            if Plugin._is_cat_tool(p):
+                # NOTE: Code required for the plugin mcp_adapter,
+                # add a langchainfy method to the CatTool class
+                # can resolve this issue.
+                if getattr(p, "arg_schema", None) is not None:
+                    new_tool = StructuredTool(
+                        name=p.name,
+                        description=p.description,
+                        func=self.remove_cat_from_args(p.func),
+                        args_schema=p.arg_schema,
+                    )
+                else:
+                    new_tool = StructuredTool.from_function(
+                            name=p.name,
+                            description=p.description,
+                            func=self.remove_cat_from_args(p.func),
+                        )
+        
+                langchain_tools.append(
+                   new_tool
+                )
+            elif Plugin._is_cat_form(p):
+                # Create a structured tool for the form
+                langchain_tools.append(
+                    Tool(
+                        name=p.name,
+                        description=p.description,
+                        func=None
+                    )
+                )
+        
+        langchain_tools.append(
+            Tool(
+                name="no_action",
+                description="Use this action if no relevant action is available",
+                func=None,
+            )
+        )
+        
+        return langchain_tools
+    
+    @staticmethod
+    def remove_cat_from_args(function: Callable) -> Callable:
+        # Get the current signature
+        signature = inspect.signature(function)
+        parameters = list(signature.parameters.values())
+        
+        # Remove the 'cat' and '_' parameters
+        # NOTE: '_' is used as a placeholder for unused parameters, leving it will cause issues
+        # with the signature analysis of the StructuredTool
+        filtered_parameters = [p for p in parameters if p.name != 'cat' and p.name != '_']
+        
+        # Create a new signature
+        new_signature = signature.replace(parameters=filtered_parameters)
+        
+        # Create a wrapper function that doesn't accept 'cat'
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            # Remove 'cat' from kwargs if present
+            if 'cat' in kwargs:
+                del kwargs['cat']
+            return function(*args, **kwargs)
+        
+        # Apply the new signature
+        wrapper.__signature__ = new_signature
+        return wrapper
