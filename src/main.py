@@ -8,6 +8,15 @@ from cat.log import log
 from .agent.base import BaseAgent
 from .agent.main_agent import MainAgent as NativeFcAgent
 from .settings import BaseSettings, load_allowed_agents
+
+@hook
+def plugin_factory_allowed_agents(agents: List[Tuple[BaseAgent, str, str]], cat) -> list:
+    agents.extend([
+        (CatMainAgent, "DEFAULT", "Default agent"),
+        (NativeFcAgent, "STANDARD_WITH_FC", "Default with native function calling")
+    ])
+    return agents
+
 def _set_agent() -> None:
     cat = CheshireCat()
     allowed_agents = load_allowed_agents(cat)
