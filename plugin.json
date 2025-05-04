@@ -1,10 +1,10 @@
 {
-    "name": "My plugin",
+    "name": "Agent Factory",
     "version": "0.0.1",
-    "description": "Description of my_plugin.",
-    "author_name": "Me",
-    "author_url": "https://mywebsite.me",
-    "plugin_url": "https://github.com/my_name/my_plugin",
-    "tags": "cat, template, example",
-    "thumb": "https://raw.githubusercontent.com/my_repo_path/my_plugin.png"
+    "description": "Extend the CheshireCat with a factory of agents. An agent with native function calling is already included.",
+    "author_name": "Emanuele Morrone",
+    "author_url": "https://github.com/Pingdred",
+    "plugin_url": "https://github.com/Pingdred/agent-factory",
+    "tags": "Agents, Factory, Plugin, Function Calling, Tools",
+    "thumb": "https://raw.githubusercontent.com/my_repo_path/agent_factory.png"
 }
