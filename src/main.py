@@ -11,10 +11,9 @@ from .settings import BaseSettings, load_allowed_agents
 
 @hook
 def plugin_factory_allowed_agents(agents: List[Tuple[BaseAgent, str, str]], cat) -> list:
-    agents.extend([
-        (CatMainAgent, "DEFAULT", "Default agent"),
+    agents.append(
         (NativeFcAgent, "STANDARD_WITH_FC", "Native Function Calling")
-    ])
+    )
     return agents
 
 def _set_agent() -> None:

@@ -7,16 +7,20 @@ from cat.mad_hatter.decorators import plugin
 from cat.mad_hatter.mad_hatter import MadHatter
 from cat.looking_glass.cheshire_cat import CheshireCat
 from cat.looking_glass.prompts import MAIN_PROMPT_PREFIX
+from cat.agents.main_agent import MainAgent as CatMainAgent
 from .agent.base import BaseAgent
 
 BASE_TOOL_PROMPT = "You are a tool agent. You can use the following tools to help the user fulfill their request."
 
 def load_allowed_agents(cat: CheshireCat) -> List[Tuple[BaseAgent, str, str]]:
-    return MadHatter().execute_hook(
+    agents = MadHatter().execute_hook(
         "plugin_factory_allowed_agents",
         [],
         cat=cat
     )
+    agents.append((CatMainAgent, "DEFAULT", "Default agent"))
+    return agents
+
 
 class BaseSettings(BaseModel):
     # The field agents is a placeholder for the actual
