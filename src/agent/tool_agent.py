@@ -8,8 +8,6 @@ from cat.mad_hatter.mad_hatter import MadHatter
 
 from .base import LangchainBaseAgent
 from ..convo.messages import LLMAction
-from ..settings import BaseSettings
-
 
 class NativeToolAgent(LangchainBaseAgent):
 
@@ -38,7 +36,8 @@ class NativeToolAgent(LangchainBaseAgent):
         return results
 
     def _choose_procedure(self, cat, procedures_names: Set[str]) -> List[LLMAction]:
-        settings = BaseSettings(**cat.mad_hatter.get_plugin().load_settings())
+        SettingsModel: type = cat.mad_hatter.get_plugin().settings_model()
+        settings = SettingsModel(**cat.mad_hatter.get_plugin().load_settings())
 
         system_prompt = settings.tools_prompt
         if not settings.set_tools_prompt:

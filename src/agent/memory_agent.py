@@ -9,8 +9,6 @@ from cat.mad_hatter.mad_hatter import MadHatter
 from cat.utils import verbal_timedelta, match_prompt_variables
 
 from .base import LangchainBaseAgent
-from ..settings import BaseSettings
-
 
 class MemoryAgent(LangchainBaseAgent):
 
@@ -33,7 +31,9 @@ class MemoryAgent(LangchainBaseAgent):
     
     def _get_prompt(self, cat) -> str:
         # Obtain prompt parts from plugins
-        settings = BaseSettings(**cat.mad_hatter.get_plugin().load_settings())
+        SettingsModel: type = cat.mad_hatter.get_plugin().settings_model()
+        settings = SettingsModel(**cat.mad_hatter.get_plugin().load_settings())
+
         prompt_prefix = settings.system_prompt
         if not settings.set_system_prompt:
             # Get system prompt from plugins

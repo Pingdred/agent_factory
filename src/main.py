@@ -2,12 +2,10 @@ from typing import List, Tuple
 
 from cat.mad_hatter.decorators import hook
 from cat.looking_glass.cheshire_cat import CheshireCat
-from cat.agents.main_agent import MainAgent as CatMainAgent
 from cat.log import log
 
 from .agent.base import BaseAgent
 from .agent.main_agent import MainAgent as NativeFcAgent
-from .settings import BaseSettings, load_allowed_agents
 
 @hook
 def plugin_factory_allowed_agents(agents: List[Tuple[BaseAgent, str, str]], cat) -> list:
@@ -18,18 +16,28 @@ def plugin_factory_allowed_agents(agents: List[Tuple[BaseAgent, str, str]], cat)
 
 def _set_agent() -> None:
     cat = CheshireCat()
-    allowed_agents = load_allowed_agents(cat)
-    # Key is the agent description (Enum value), value is the agent class
-    agents_dict = {agent[2]: agent[0] for agent in allowed_agents}
-    agents_names = {agent[2]: agent[1] for agent in allowed_agents}
 
-    settings = BaseSettings(**cat.mad_hatter.get_plugin().load_settings())
-    SelectedAgent: BaseAgent = agents_dict.get(settings.agent, CatMainAgent)
+    # Load plugin settings
+    this_plugin = cat.mad_hatter.get_plugin()
+    SettingsModel: type = this_plugin.settings_model()
+    settings = SettingsModel(**this_plugin.load_settings())
 
+    # Get the selected agent class from the settings
+    allowed_agents = SettingsModel.get_agents()
+    SelectedAgent: BaseAgent = allowed_agents.get(settings.agent.name, None)
+
+    # Fallback to default agent if not found
+    if SelectedAgent is None:
+        log.error(f"AGENT FACTORY: Agent {settings.agent.name} not found, using default agent")
+        SelectedAgent = allowed_agents["DEFAULT"]
+
+    # Avoid re-setting the agent if it's already set
     if isinstance(cat.main_agent, SelectedAgent):
+        log.debug(f"AGENT FACTORY: Agent already set to {settings.agent.name}")
         return
     
-    log.debug(f"AGENT FACTORY: Setting agent to {agents_names[settings.agent]}")
+    # Set the selected agent
+    log.debug(f"AGENT FACTORY: Setting agent to {settings.agent.name}")
     cat.main_agent = SelectedAgent()
 
 @hook 
