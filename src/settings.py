@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field, field_validator
 from cat.mad_hatter.decorators import plugin
 from cat.mad_hatter.mad_hatter import MadHatter
 from cat.looking_glass.cheshire_cat import CheshireCat
-from cat.looking_glass.prompts import MAIN_PROMPT_PREFIX
 from cat.agents.main_agent import MainAgent as CatMainAgent
 from cat.log import log
 
