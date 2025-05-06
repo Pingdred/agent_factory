@@ -72,7 +72,7 @@ def settings_model() -> BaseModel:
             if isinstance(v, str) and v in AgentEnum._value2member_map_:
                 return AgentEnum(v)
             
-            log.error(f"AGENT FACTORY: Agent {v} not found, using default agent")
+            log.error(f"AGENT FACTORY: Agent `{v}` not found, using default agent")
             return AgentEnum.DEFAULT
 
         @classmethod
