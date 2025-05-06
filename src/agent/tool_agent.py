@@ -9,6 +9,8 @@ from cat.mad_hatter.mad_hatter import MadHatter
 from .base import LangchainBaseAgent
 from ..convo.messages import LLMAction
 
+BASE_TOOL_PROMPT = "You are a tool agent. You can use the following tools to help the user fulfill their request."
+
 class NativeToolAgent(LangchainBaseAgent):
 
     def __init__(self):
@@ -26,25 +28,18 @@ class NativeToolAgent(LangchainBaseAgent):
         
         results = []
         for a in actions:
-            procedure_result = self.execute_procedure(
+            procedure_result = self.execute_action(
                 cat, 
-                name=a.name,
-                input=a.input
+                action=a,
             )
             results.append((a, procedure_result))
 
         return results
 
     def _choose_procedure(self, cat, procedures_names: Set[str]) -> List[LLMAction]:
-        SettingsModel: type = cat.mad_hatter.get_plugin().settings_model()
-        settings = SettingsModel(**cat.mad_hatter.get_plugin().load_settings())
-
-        system_prompt = settings.tools_prompt
-        if not settings.set_tools_prompt:
-            # Get procedures prompt from plugins
-            system_prompt = self.mad_hatter.execute_hook(
-                "agent_prompt_instructions", system_prompt, cat=cat
-            )
+        system_prompt = self.mad_hatter.execute_hook(
+            "agent_prompt_instructions", BASE_TOOL_PROMPT, cat=cat
+        )
 
         # Gather recalled procedures
         procedures_names = self.mad_hatter.execute_hook(
@@ -61,8 +56,12 @@ class NativeToolAgent(LangchainBaseAgent):
         # from the recalled procedures names
         procedures = self._get_procedures(procedures_names)
 
-        # system_prompt += "\nHere some examples:\n"
-        # system_prompt += '\n'.join(self.generate_examples(procedures))
+        # Add procedure examples to the system prompt
+        system_prompt += "\nHere some examples:\n"
+        system_prompt += '\n'.join(self.generate_examples(procedures))
+
+        SettingsModel: type = cat.mad_hatter.get_plugin().settings_model()
+        settings = SettingsModel(**cat.mad_hatter.get_plugin().load_settings())
 
         calls = self.run_chain(
             cat=cat,

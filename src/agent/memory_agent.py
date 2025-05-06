@@ -6,6 +6,7 @@ from cat.agents import AgentOutput
 from cat.looking_glass import prompts
 from cat.log import log
 from cat.mad_hatter.mad_hatter import MadHatter
+from cat.looking_glass.prompts import MAIN_PROMPT_PREFIX
 from cat.utils import verbal_timedelta, match_prompt_variables
 
 from .base import LangchainBaseAgent
@@ -30,16 +31,10 @@ class MemoryAgent(LangchainBaseAgent):
         return AgentOutput()
     
     def _get_prompt(self, cat) -> str:
-        # Obtain prompt parts from plugins
-        SettingsModel: type = cat.mad_hatter.get_plugin().settings_model()
-        settings = SettingsModel(**cat.mad_hatter.get_plugin().load_settings())
 
-        prompt_prefix = settings.system_prompt
-        if not settings.set_system_prompt:
-            # Get system prompt from plugins
-            prompt_prefix = self.mad_hatter.execute_hook(
-                "agent_prompt_instructions", prompt_prefix, cat=cat
-            )
+        prompt_prefix = self.mad_hatter.execute_hook(
+            "agent_prompt_instructions", MAIN_PROMPT_PREFIX, cat=cat
+        )
 
         prompt_prefix = self.mad_hatter.execute_hook(
             "agent_prompt_prefix", prompt_prefix, cat=cat

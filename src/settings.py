@@ -12,8 +12,6 @@ from cat.log import log
 
 from .agent.base import BaseAgent
 
-BASE_TOOL_PROMPT = "You are a tool agent. You can use the following tools to help the user fulfill their request."
-
 def load_allowed_agents(cat: CheshireCat) -> List[Tuple[BaseAgent, str, str]]:
     agents: List = MadHatter().execute_hook(
         "plugin_factory_allowed_agents",
@@ -37,28 +35,6 @@ def settings_model() -> BaseModel:
             title="Agents",
             description="Select the agent to use.",
             default=AgentEnum.DEFAULT,
-        )
-        set_system_prompt: bool = Field(
-            title="Force system prompt (Only for Native FC)",
-            default=False,
-            description="Whether to use the following system prompt. This will override the default system prompt and the one from the plugins.",
-        )
-        system_prompt: str = Field(
-            title="System Prompt (Only for Native FC)",
-            default=MAIN_PROMPT_PREFIX,
-            description="Describe the cheshire cat personality and behavior.",
-            extra={"type": "TextArea"},        
-        )
-        set_tools_prompt: bool = Field(
-            title="Force tools prompt (Only for Native FC)",
-            default=False,
-            description="Whether to use the following tools prompt. This will override the default tools prompt and the one from the plugins.",
-        )
-        tools_prompt: str = Field(
-            title="Tools Prompt (Only for Native FC)",
-            default=BASE_TOOL_PROMPT,
-            description="Describe the tools available to the cheshire cat.",
-            extra={"type": "TextArea"},        
         )
         max_tools_call: int = Field(
             title="Max tools call (Only for Native FC)",

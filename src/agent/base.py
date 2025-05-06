@@ -68,17 +68,15 @@ class NewBaseAgent(BaseAgent):
     def __init__(self):
         super().__init__()
 
-    def execute_procedure(self, cat: StrayCat, name: str, input: str | Dict) -> AgentOutput:
+    def execute_action(self, cat: StrayCat, action: LLMAction) -> AgentOutput:
         """Execute a procedure by name.
 
         Parameters
         ----------
             cat: StrayCat
                 The StrayCat instance
-            name: str
-                The name of the procedure to execute
-            input: str | Dict
-                The input to the procedure, can be a string or a dictionary
+            action: LLMAction
+                The action to execute 
         Returns
         -------
             AgentOutput
@@ -89,11 +87,11 @@ class NewBaseAgent(BaseAgent):
                 If the procedure is not found
         """
 
-        procedure = self._get_procedures([name]).get(name, None)
+        procedure = self._get_procedures([action.name]).get(action.name, None)
         if procedure is not None:
-            return _execute_procedure(cat, procedure, input)
+            return _execute_procedure(cat, procedure, action.input)
         
-        raise ValueError(f"Procedure `{name}` not found in the available procedures.")
+        raise ValueError(f"Procedure `{action.name}` not found in the available procedures.")
 
     def save_action_result(self, action: LLMAction, procedure_result: AgentOutput, cat) -> None:
         """Save the action result in the chat history.
