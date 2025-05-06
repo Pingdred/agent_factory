@@ -1,6 +1,7 @@
 # Agent Factory for Cheshire Cat AI
 
-[](https://www.google.com/search?q=%5Bhttps://www.google.com/search%3Fq%3Dhttps://%5D\(https://www.google.com/search%3Fq%3Dhttps://\)) [](https://www.google.com/search?q=%5Bhttps://www.google.com/search%3Fq%3Dhttps://%5D\(https://www.google.com/search%3Fq%3Dhttps://\))
+[![awesome plugin](https://custom-icon-badges.demolab.com/static/v1?label=&message=awesome+plugin&color=383938&style=for-the-badge&logo=cheshire_cat_ai)](https://)  [![Awesome plugin](https://custom-icon-badges.demolab.com/static/v1?label=&message=Awesome+plugin&color=000000&style=for-the-badge&logo=cheshire_cat_ai)](https://)
+
 
 **Agent Factory is a plugin for Cheshire Cat AI that introduces a flexible system for creating and using custom agents.**
 
@@ -9,8 +10,15 @@ This plugin extends Cheshire Cat AI by allowing the development of agents with s
 ## Main Features
 
   * **Extensible Agents**: Create agents by inheriting from `LangchainBaseAgent`.
-  * **Native Function Calling Agent**: Includes a re-implementation of the Cheshire Cat AI agent with native function calling support.
+  * **Function Calling**: Support for LLM Function Calling, enabling agents to call functions natively. This allows to define tools with any number of parameters. Example:
+    ```python
+    @tool
+    def add_numbers(a: int, b: int, cat) -> int:
+        """Adds two numbers.`a` and `b` are the two integers to add"""
+        return a + b
+    ``` 
   * **Utility Helper**: `LangchainBaseAgent` offers methods to interact with Cheshire Cat AI's memory, tools, etc.
+  * **Native Function Calling Agent**: Includes a re-implementation of the Cheshire Cat AI agent with native function calling support.
 
 ## Installation
 
@@ -79,7 +87,8 @@ Each tuple contains: `(AgentClass, "UNIQUE_NAME", "UI Name")`.
   * **`get_recalled_procedures_names(...)`**: Gets names of recalled tools/forms.
   * **`get_recalled_episodic_memory(...)` / `get_recalled_declarative_memory(...)`**: Accesses recalled memory.
 
-## Included Agents
+## Contributing
 
-  * **Default agent (`CatMainAgent`)**: Standard Cheshire Cat agent.
-  * **Native Function Calling (`NativeFcAgent`)**: A re-implementation of the Cheshire Cat AI agent with native function calling support.
+Contributions are welcome! If you have suggestions or improvements, please open an issue or submit a pull request. 
+
+BUT most importantly build your agent and share it with the community!
