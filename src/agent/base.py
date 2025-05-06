@@ -87,7 +87,7 @@ class NewBaseAgent(BaseAgent):
                 If the procedure is not found
         """
 
-        procedure = self._get_procedures([action.name]).get(action.name, None)
+        procedure = self.get_procedures([action.name]).get(action.name, None)
         if procedure is not None:
             return _execute_procedure(cat, procedure, action.input)
         
@@ -168,7 +168,7 @@ class NewBaseAgent(BaseAgent):
             for m in memory_points
         ]
 
-    def _get_procedures(self, procedures_name: List[str]) -> Dict[str, CatTool | CatForm]:
+    def get_procedures(self, procedures_name: List[str]) -> Dict[str, CatTool | CatForm]:
         # NOTE: This function should be in the MadHatter, or much better
         # make mad_hatter.procedures a dict with the procedure name as key
         # and the procedure as value
@@ -181,7 +181,6 @@ class NewBaseAgent(BaseAgent):
 
         return allowed_procedures
     
-
 class LangchainBaseAgent(NewBaseAgent):
 
     def run_chain(

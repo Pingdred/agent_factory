@@ -54,7 +54,7 @@ class NativeToolAgent(LangchainBaseAgent):
 
         # Get the procedures objects (CatTool or CatForm)
         # from the recalled procedures names
-        procedures = self._get_procedures(procedures_names)
+        procedures = self.get_procedures(procedures_names)
 
         # Add procedure examples to the system prompt
         system_prompt += "\nHere some examples:\n"
