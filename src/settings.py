@@ -8,6 +8,8 @@ from cat.mad_hatter.mad_hatter import MadHatter
 from cat.looking_glass.cheshire_cat import CheshireCat
 from cat.looking_glass.prompts import MAIN_PROMPT_PREFIX
 from cat.agents.main_agent import MainAgent as CatMainAgent
+from cat.log import log
+
 from .agent.base import BaseAgent
 
 BASE_TOOL_PROMPT = "You are a tool agent. You can use the following tools to help the user fulfill their request."
@@ -69,6 +71,8 @@ def settings_model() -> BaseModel:
         def validate_or_default(cls, v):
             if isinstance(v, str) and v in AgentEnum._value2member_map_:
                 return AgentEnum(v)
+            
+            log.error(f"AGENT FACTORY: Agent {v} not found, using default agent")
             return AgentEnum.DEFAULT
 
         @classmethod

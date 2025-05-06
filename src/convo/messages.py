@@ -18,6 +18,8 @@ class CatToolMessage(CatMessage):
     result: AgentOutput
 
     def langchainfy(self) -> List[ToolMessage]:
+
+        # Message to rapresent the tool called
         tool_call =  AIMessage(
             content=f"Tool Call: {self.action.name}",
             tool_calls=[
@@ -29,6 +31,7 @@ class CatToolMessage(CatMessage):
             ],
         )
 
+        # Message to represent the result of the tool called
         tool_result = ToolMessage(
             content=self.result.output,
             tool_call_id=self.action.id,
