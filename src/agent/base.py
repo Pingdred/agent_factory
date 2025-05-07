@@ -93,7 +93,7 @@ class NewBaseAgent(BaseAgent):
         
         raise ValueError(f"Procedure `{action.name}` not found in the available procedures.")
 
-    def save_action_result(self, action: LLMAction, procedure_result: AgentOutput, cat) -> None:
+    def save_action_result(self, action: LLMAction, action_result: AgentOutput, cat) -> None:
         """Save the action result in the chat history.
         This is used to keep track of the actions taken and their results.
         
@@ -111,7 +111,7 @@ class NewBaseAgent(BaseAgent):
         action_call = CatToolMessage(
             user_id=cat.user_id,
             action=action,
-            result=procedure_result,
+            result=action_result,
         )
         cat.working_memory.update_history(action_call)
 
@@ -260,14 +260,21 @@ class LangchainBaseAgent(NewBaseAgent):
         )
 
         if len(res.tool_calls) > 0:
-            return [
-                    LLMAction(
-                        name=res.tool_calls[i]["name"],
-                        input=res.tool_calls[i]["args"],
-                        id=res.tool_calls[i]["id"],
-                    )
-                    for i in range(min(max_procedures_calls, len(res.tool_calls)))
-                ]
+            procedures_names = [p.name for p in procedures]
+
+            # Filter the tool calls to only include those that are in the allowed procedures
+            # and limit the number of calls to max_procedures_calls
+            # This check will also exclude the "no_action" tool added in the _to_langchain_tools method
+            valid_calls = [
+                LLMAction(
+                    name=res.tool_calls[i]["name"],
+                    input=res.tool_calls[i]["args"],
+                    id=res.tool_calls[i]["id"],
+                )
+                for i in range(min(max_procedures_calls, len(res.tool_calls)))
+                if res.tool_calls[i]["name"] in procedures_names
+            ]
+            return valid_calls
         
         if isinstance(res.content, str):
             # If the LLM output is a string, return it directly
@@ -323,6 +330,10 @@ class LangchainBaseAgent(NewBaseAgent):
                     )
                 )
         
+        # Fake tool to give the LLM an explicit option
+        # to not take any action, this is useful when the LLM
+        # is not sure about the action to take, or when any 
+        # of the actions are relevant.
         langchain_tools.append(
             Tool(
                 name="no_action",

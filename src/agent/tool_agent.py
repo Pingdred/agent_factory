@@ -72,18 +72,11 @@ class NativeToolAgent(LangchainBaseAgent):
         )
         # No procedure selected, discard the result
         # and exit the agent
-        if isinstance(calls, str):
-            log.debug("No tool selected.")
-            return []
-        
-        # Filter the calls to keep only the calls to 
-        # the available procedures during this call
-        valid_calls = [call for call in calls if call.name in procedures_names]
-
-        if len(valid_calls) == 0:
+        if isinstance(calls, str) or len(calls) == 0:
             log.debug("No valid tools selected.")
+            return []
 
-        return valid_calls
+        return calls
      
     def generate_examples(self, allowed_procedures):
         examples = []
