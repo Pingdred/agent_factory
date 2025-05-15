@@ -53,7 +53,7 @@ def _execute_tool(cat: StrayCat, tool: CatTool, input: Dict[str, Any]) -> AgentO
         output=tool_output,
         return_direct=tool.return_direct,
         intermediate_steps=[
-            ((tool.procedure_type, tool.name), tool_output)
+            ((tool.name, str(input)), tool_output)
         ]
     )
 
@@ -181,6 +181,7 @@ class NewBaseAgent(BaseAgent):
 
         return allowed_procedures
     
+
 class LangchainBaseAgent(NewBaseAgent):
 
     def run_chain(
