@@ -68,6 +68,10 @@ class NewBaseAgent(BaseAgent):
     def __init__(self):
         super().__init__()
 
+    def execute(self, cat: StrayCat) -> AgentOutput:
+        """Abstract method to be implemented by the agent."""
+        pass
+
     def execute_action(self, cat: StrayCat, action: LLMAction) -> AgentOutput:
         """Execute a procedure by name.
 
