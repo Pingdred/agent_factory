@@ -264,9 +264,13 @@ class LangchainBaseAgent(NewBaseAgent):
             ])
         )
 
-        if len(res.tool_calls) > 0:
-            procedures_names = [p.name for p in procedures]
+        call_results = []
 
+        response_text = res.text().strip()
+        if response_text:
+            call_results.append(AgentOutput(output=response_text, return_direct=True))
+
+        if len(res.tool_calls) > 0:
             # Filter the tool calls to only include those that are in the allowed procedures
             # and limit the number of calls to max_procedures_calls
             # This check will also exclude the "no_action" tool added in the _to_langchain_tools method
@@ -279,14 +283,15 @@ class LangchainBaseAgent(NewBaseAgent):
                 for i in range(min(max_procedures_calls, len(res.tool_calls)))
                 if res.tool_calls[i]["name"] in procedures.keys()
             ]
-            return valid_calls
-        
-        if isinstance(res.content, str):
-            # If the LLM output is a string, return it directly
-            return res.content
-        
-        raise ValueError(f"Unexpected LLM output: {res.content}")
-    
+
+            for tool_call in valid_calls:
+                # Execute the procedure and save the result
+                action_result = _execute_procedure(cat, procedures[tool_call.name], tool_call.input)
+                action_result.tool_call = tool_call
+                call_results.append(action_result)
+
+        return call_results
+            
     def _to_langchain_tools(self, procedures: List[CatTool | CatForm]) -> List[Tool]:
         """
         Prepare a list of allowed procedures as LangChain tools.
