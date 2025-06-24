@@ -192,11 +192,11 @@ class LangchainBaseAgent(NewBaseAgent):
         self,
         cat: StrayCat,
         system_prompt: str,
-        procedures: List[CatTool | CatForm] = [],
+        procedures: Dict[str, CatTool | CatForm] = {},
         chat_history: List[CatMessage | HumanMessage] | None = None,
         max_procedures_calls: int = 1,
         chain_name: str = "Langchain Chain",
-    ) -> str | List[LLMAction]:
+    ) -> List[AgentOutput]:
         """
         Interrogate the LLM to get a text response or a list of actions to execute.
 
@@ -242,9 +242,9 @@ class LangchainBaseAgent(NewBaseAgent):
             ]
         )
 
-        if procedures is not None and len(procedures) > 0:
+        if procedures:
             # Add tool to the prompt
-            llm = cat._llm.bind_tools(self._to_langchain_tools(procedures))  # parallel_tool_calls=False
+            llm = cat._llm.bind_tools(self._to_langchain_tools(procedures.values()))  # parallel_tool_calls=False
         else:
             llm = cat._llm
 
@@ -277,7 +277,7 @@ class LangchainBaseAgent(NewBaseAgent):
                     id=res.tool_calls[i]["id"],
                 )
                 for i in range(min(max_procedures_calls, len(res.tool_calls)))
-                if res.tool_calls[i]["name"] in procedures_names
+                if res.tool_calls[i]["name"] in procedures.keys()
             ]
             return valid_calls
         
