@@ -19,7 +19,6 @@ from cat.mad_hatter.mad_hatter import MadHatter
 from cat.mad_hatter.plugin import Plugin
 from cat.mad_hatter.decorators.tool import CatTool
 from cat.experimental.form.cat_form import CatForm
-from cat.agents.base_agent import AgentOutput
 from cat.agents.base_agent import BaseAgent as CatBaseAgent
 from cat.agents.form_agent import FormAgent
 from cat.looking_glass.stray_cat import StrayCat
@@ -29,55 +28,40 @@ from cat.utils import get_caller_info, langchain_log_output, langchain_log_promp
 from cat.convo.messages import CatMessage, HumanMessage
 from cat.log import log
 
-from .messages import LLMAction, CatToolMessage
+from .messages import LLMAction, CatToolMessage, AgentOutput
 
 
 # Agent execution utilities
-def _execute_tool(cat: StrayCat, tool: CatTool, tool_input: str | Dict) -> AgentOutput:
-    """Execute a CatTool with the given input."""
-    try:
-        # Handle both string and dict inputs
-        if isinstance(tool_input, str):
-            # For simple tools that expect a single string argument
-            tool_output = tool.func(tool_input, cat=cat)
-        else:
-            # For tools with multiple named parameters
-            tool_output = tool.func(**tool_input, cat=cat)
-            
-        return AgentOutput(
-            output=str(tool_output)
-        )
-    except Exception as e:
-        error_msg = f"Error executing tool {tool.name}: {str(e)}"
-        log.error(error_msg)
-        return AgentOutput(
-            output=error_msg
-        )
+def _execute_tool(cat: StrayCat, tool: CatTool, input: Dict[str, Any]) -> LLMAction:
+    log.debug(f"Executing tool: {tool.name} with input: {input}")
+    tool_output = tool.func(
+        **input, cat=cat
+    )
 
     # Ensure the output is a string or None, 
     if (tool_output is not None) and (not isinstance(tool_output, str)):
         tool_output = str(tool_output)
 
-def _execute_form(cat: StrayCat, form: CatForm) -> AgentOutput:
-    """Execute a CatForm."""
-    try:
-        # Forms in Cheshire Cat are handled differently
-        # This is a simplified implementation
-        form_output = form.name  # Placeholder - actual form execution logic would go here
-        return AgentOutput(
-            output=f"Form {form.name} executed"
-        )
-    except Exception as e:
-        error_msg = f"Error executing form {form.name}: {str(e)}"
-        log.error(error_msg)
-        return AgentOutput(
-            output=error_msg
-        )
+    return LLMAction(
+        name=tool.name,
+        input=input,
+        output=tool_output,
+        return_direct=tool.return_direct
+    )
 
-def _execute_form(cat: StrayCat, form: CatForm) -> AgentOutput:
+
+def _execute_form(cat: StrayCat, form: CatForm) -> LLMAction:
     form_instance = form(cat)
     cat.working_memory.active_form = form_instance
-    return FormAgent().execute(cat)
+
+    form_output: AgentOutput = FormAgent().execute(cat)
+
+    return LLMAction(
+        name=form.name,
+        input=form_instance._model,
+        output=form_output.output,
+        return_direct=True,  # Forms typically return direct output
+    )
 
 class BaseAgent(CatBaseAgent):
     """
@@ -95,7 +79,7 @@ class BaseAgent(CatBaseAgent):
         pass
 
     @staticmethod
-    def execute_procedure(cat: StrayCat, procedure: CatTool | CatForm, input: str | Dict) -> AgentOutput:
+    def execute_procedure(cat: StrayCat, procedure: CatTool | CatForm, input: str | Dict) -> LLMAction:
         """Execute a procedure (tool or form) with the given input."""
         try:
             if Plugin._is_cat_tool(procedure):
@@ -108,14 +92,16 @@ class BaseAgent(CatBaseAgent):
             log.error(f"Error executing {procedure.procedure_type} `{procedure.name}`: {str(e)}")
 
         log.error(f"Unknown procedure type: {type(procedure)}")
-        return AgentOutput()
+        raise ValueError(
+            f"Unknown procedure type: {type(procedure)}. "
+            "Expected CatTool or CatForm."
+        )
 
-    def save_procedure_result(self, action: LLMAction, action_result: AgentOutput, cat) -> None:
+    def save_procedure_result(self, action: LLMAction, cat) -> None:
         """Save the action result in the chat history."""
         action_call = CatToolMessage(
             user_id=cat.user_id,
             action=action,
-            result=action_result,
         )
         cat.working_memory.update_history(action_call)
 
@@ -173,7 +159,7 @@ class LangchainBaseAgent(BaseAgent):
         chat_history: List[CatMessage | HumanMessage] | None = None,
         max_procedures_calls: int = 1,
         chain_name: str = "Langchain Chain",
-    ) -> List[AgentOutput]:
+    ) -> AgentOutput:
         """
         Run a LangChain chain with function calling capabilities.
         
@@ -237,29 +223,27 @@ class LangchainBaseAgent(BaseAgent):
             ])
         )
 
-        call_results = []
-
-        response_text = res.content.strip() if res.content else ""
-        if response_text:
-            call_results.append(AgentOutput(output=response_text, return_direct=True))
-
+        tool_calls: List[LLMAction] = []
         if len(res.tool_calls) > 0:
             valid_calls = [
-                LLMAction(
-                    name=res.tool_calls[i]["name"],
-                    input=res.tool_calls[i]["args"],
-                    id=res.tool_calls[i]["id"],
-                )
+                (res.tool_calls[i]["name"], res.tool_calls[i]["args"], res.tool_calls[i]['id'])
                 for i in range(min(max_procedures_calls, len(res.tool_calls)))
                 if res.tool_calls[i]["name"] in procedures.keys()
             ]
 
             for tool_call in valid_calls:
-                action_result = self.execute_procedure(cat, procedures[tool_call.name], tool_call.input)
-                action_result.tool_call = tool_call
-                call_results.append(action_result)
+                action_result = self.execute_procedure(cat, procedures[tool_call[0]], tool_call[1])
 
-        return call_results
+                # Set the id given by the LLM for the tool call
+                # this is required by the LLM api to match the tool call with the result
+                action_result.id = tool_call[2] 
+
+                tool_calls.append(action_result)
+
+        return AgentOutput(
+            output=res.text() if res.text() else None,
+            actions=tool_calls,
+        )
             
     def _to_langchain_tools(self, procedures: List[CatTool | CatForm]) -> List[Tool]:
         """Convert Cheshire Cat procedures to LangChain tools."""
