@@ -22,7 +22,7 @@ from cat.experimental.form.cat_form import CatForm
 from cat.agents.base_agent import BaseAgent as CatBaseAgent
 from cat.agents.form_agent import FormAgent
 from cat.looking_glass.stray_cat import StrayCat
-from cat.looking_glass.callbacks import ModelInteractionHandler
+from cat.looking_glass.callbacks import ModelInteractionHandler, NewTokenHandler
 from cat.memory.working_memory import MAX_WORKING_HISTORY_LENGTH
 from cat.utils import get_caller_info, langchain_log_output, langchain_log_prompt
 from cat.convo.messages import CatMessage, HumanMessage
@@ -219,6 +219,7 @@ class LangchainBaseAgent(BaseAgent):
         res: AIMessage = chain.invoke(
             {},
             config=RunnableConfig(callbacks=[
+                NewTokenHandler(cat),
                 ModelInteractionHandler(cat, get_caller_info(skip=1))
             ])
         )
@@ -232,6 +233,7 @@ class LangchainBaseAgent(BaseAgent):
             ]
 
             for tool_call in valid_calls:
+                cat.send_ws_message(f"Executing: `{tool_call[0]}`\n", msg_type="chat_token")
                 action_result = self.execute_procedure(cat, procedures[tool_call[0]], tool_call[1])
 
                 # Set the id given by the LLM for the tool call
