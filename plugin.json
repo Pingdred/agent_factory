@@ -1,10 +1,10 @@
 {
     "name": "Agent Factory",
-    "version": "0.0.1",
-    "description": "Extend the CheshireCat with a factory of agents. An agent with native function calling is already included.",
+    "version": "0.1.0",
+    "description": "Extend the CheshireCat with a factory of agents. Create custom agents with native function calling support.",
     "author_name": "Emanuele Morrone",
     "author_url": "https://github.com/Pingdred",
-    "plugin_url": "https://github.com/Pingdred/agent-factory",
+    "plugin_url": "https://github.com/Pingdred/agent_factory",
     "tags": "Agents, Factory, Plugin, Function Calling, Tools",
-    "thumb": "https://github.com/Pingdred/agent-factory/blob/dev/assets/agent_factory_logo.png?raw=true"
+    "thumb": "https://github.com/Pingdred/agent_factory/blob/main/assets/agent_factory_logo.png?raw=true"
 }
