@@ -35,7 +35,11 @@ def settings_model() -> BaseModel:
             description="Select the agent to use.",
             default=AgentEnum.DEFAULT,
         )
-
+        stream_tool_calls: bool = Field(
+            title="Stream Tool Calls",
+            default=True,
+        )
+        
         @field_validator("agent", mode='before')
         @classmethod
         def validate_or_default(cls, v):

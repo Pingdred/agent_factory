@@ -233,7 +233,14 @@ class LangchainBaseAgent(BaseAgent):
             ]
 
             for tool_call in valid_calls:
-                cat.send_ws_message(f"Executing: `{tool_call[0]}`\n", msg_type="chat_token")
+                settings = cat.mad_hatter.get_plugin().load_settings()
+                if settings.get("stream_tool_calls", True):
+                    # Stream tool calls to the chat
+                    cat.send_ws_message(
+                        f"Executing: `{tool_call[0]}`",
+                        msg_type="chat_token"
+                    )
+
                 action_result = self.execute_procedure(cat, procedures[tool_call[0]], tool_call[1])
 
                 # Set the id given by the LLM for the tool call
