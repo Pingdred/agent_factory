@@ -1,6 +1,5 @@
 from .src.agents import BaseAgent, LangchainBaseAgent
-from .src.messages import CatToolMessage, LLMAction
-from cat.agents.base_agent import AgentOutput
+from .src.messages import CatToolMessage, LLMAction, AgentOutput
 
 __all__ = [
     "BaseAgent",
