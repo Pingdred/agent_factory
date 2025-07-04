@@ -1,0 +1,313 @@
+"""
+Agent Factory - Agent Classes
+
+This module contains all the agent classes for the Agent Factory plugin.
+It includes the base agent functionality and the LangChain-based agent implementation.
+"""
+
+import inspect
+import functools
+from typing import Dict, List, Set, Tuple, Callable
+
+from langchain_core.documents import Document
+from langchain.prompts import ChatPromptTemplate
+from langchain_core.messages import SystemMessage, AIMessage
+from langchain_core.tools import StructuredTool, Tool
+from langchain_core.runnables import RunnableConfig, RunnableLambda
+
+from cat.mad_hatter.mad_hatter import MadHatter
+from cat.mad_hatter.plugin import Plugin
+from cat.mad_hatter.decorators.tool import CatTool
+from cat.experimental.form.cat_form import CatForm
+from cat.agents.base_agent import AgentOutput
+from cat.agents.base_agent import BaseAgent as CatBaseAgent
+from cat.looking_glass.stray_cat import StrayCat
+from cat.looking_glass.callbacks import ModelInteractionHandler
+from cat.memory.working_memory import MAX_WORKING_HISTORY_LENGTH
+from cat.utils import get_caller_info, langchain_log_output, langchain_log_prompt
+from cat.convo.messages import CatMessage, HumanMessage
+from cat.log import log
+
+from .messages import LLMAction, CatToolMessage
+
+
+# Agent execution utilities
+def _execute_tool(cat: StrayCat, tool: CatTool, tool_input: str | Dict) -> AgentOutput:
+    """Execute a CatTool with the given input."""
+    try:
+        # Handle both string and dict inputs
+        if isinstance(tool_input, str):
+            # For simple tools that expect a single string argument
+            tool_output = tool.func(tool_input, cat=cat)
+        else:
+            # For tools with multiple named parameters
+            tool_output = tool.func(**tool_input, cat=cat)
+            
+        return AgentOutput(
+            output=str(tool_output)
+        )
+    except Exception as e:
+        error_msg = f"Error executing tool {tool.name}: {str(e)}"
+        log.error(error_msg)
+        return AgentOutput(
+            output=error_msg
+        )
+
+
+def _execute_form(cat: StrayCat, form: CatForm) -> AgentOutput:
+    """Execute a CatForm."""
+    try:
+        # Forms in Cheshire Cat are handled differently
+        # This is a simplified implementation
+        form_output = form.name  # Placeholder - actual form execution logic would go here
+        return AgentOutput(
+            output=f"Form {form.name} executed"
+        )
+    except Exception as e:
+        error_msg = f"Error executing form {form.name}: {str(e)}"
+        log.error(error_msg)
+        return AgentOutput(
+            output=error_msg
+        )
+
+
+class BaseAgent(CatBaseAgent):
+    """
+    Base agent class that extends Cheshire Cat's BaseAgent.
+    
+    This class provides common functionality for all custom agents including
+    procedure execution, memory access, and result saving.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def execute(self, cat: StrayCat) -> AgentOutput:
+        """Abstract method to be implemented by the agent."""
+        pass
+
+    @staticmethod
+    def execute_procedure(cat: StrayCat, procedure: CatTool | CatForm, input: str | Dict) -> AgentOutput:
+        """Execute a procedure (tool or form) with the given input."""
+        try:
+            if Plugin._is_cat_tool(procedure):
+                return _execute_tool(cat, procedure, input)
+            
+            if Plugin._is_cat_form(procedure):
+                return _execute_form(cat, procedure)
+            
+        except Exception as e:
+            log.error(f"Error executing {procedure.procedure_type} `{procedure.name}`: {str(e)}")
+
+        log.error(f"Unknown procedure type: {type(procedure)}")
+        return AgentOutput()
+
+    def save_procedure_result(self, action: LLMAction, action_result: AgentOutput, cat) -> None:
+        """Save the action result in the chat history."""
+        action_call = CatToolMessage(
+            user_id=cat.user_id,
+            action=action,
+            result=action_result,
+        )
+        cat.working_memory.update_history(action_call)
+
+    def get_recalled_procedures_names(self, cat: StrayCat) -> Set[str]:
+        """Get the names of the recalled procedures from the working memory."""
+        recalled_procedures_names = set()
+        
+        for memory_group in cat.working_memory.procedural_memories:
+            memory = memory_group[0]
+            metadata = memory.metadata
+            
+            if (metadata["type"] in ["tool", "form"] and 
+                metadata["trigger_type"] in ["description", "start_example"]):
+                recalled_procedures_names.add(metadata["source"])
+                
+        return recalled_procedures_names
+    
+    def get_recalled_episodic_memory(self, cat: StrayCat) -> List[Tuple[str, Dict]]:
+        """Get the recalled episodic memory from the working memory."""
+        return self._memory_points_to_tuple(cat.working_memory.episodic_memories)
+    
+    def get_recalled_declarative_memory(self, cat: StrayCat) -> List[Tuple[str, Dict]]:
+        """Get the recalled declarative memory from the working memory."""
+        return self._memory_points_to_tuple(cat.working_memory.declarative_memories)
+    
+    def _memory_points_to_tuple(self, memory_points: List[Tuple[Document, ]]) -> List[Tuple[str, Dict]]:
+        """Convert memory points to tuples of (text, metadata)."""
+        return [
+            (m[0].page_content.strip(), m[0].metadata)
+            for m in memory_points
+        ]
+
+    def get_procedures(self, procedures_name: List[str]) -> Dict[str, CatTool | CatForm]:
+        """Get procedures by name from the MadHatter."""
+        allowed_procedures: Dict[str, CatTool | CatForm] = {}
+        for procedure in MadHatter().procedures:
+            if procedure.name in procedures_name:
+                allowed_procedures[procedure.name] = procedure
+        return allowed_procedures
+
+
+class LangchainBaseAgent(BaseAgent):
+    """
+    LangChain-based agent with function calling capabilities.
+    
+    This agent extends BaseAgent with LangChain integration, providing
+    native function calling support and advanced prompt management.
+    """
+
+    def run_chain(
+        self,
+        cat: StrayCat,
+        system_prompt: str,
+        procedures: Dict[str, CatTool | CatForm] = {},
+        chat_history: List[CatMessage | HumanMessage] | None = None,
+        max_procedures_calls: int = 1,
+        chain_name: str = "Langchain Chain",
+    ) -> List[AgentOutput]:
+        """
+        Run a LangChain chain with function calling capabilities.
+        
+        Parameters
+        ----------
+            cat: StrayCat
+                The StrayCat instance
+            system_prompt: str
+                The system prompt to use for the LLM
+            procedures: Dict[str, CatTool | CatForm]
+                Dictionary of procedures the LLM can use
+            chat_history: List[CatMessage | HumanMessage] | None
+                The chat history to use for the LLM
+            max_procedures_calls: int
+                The maximum number of procedures the LLM can call
+            chain_name: str
+                The name of the chain for logging purposes
+
+        Returns
+        -------
+            List[AgentOutput]
+                List of outputs from the LLM and executed procedures
+        """
+        if chat_history is None:
+            chat_history = cat.working_memory.history[-MAX_WORKING_HISTORY_LENGTH:]
+        
+        langchain_chat_history = []
+        for message in chat_history:
+            ml = message.langchainfy()
+            if isinstance(ml, list):
+                langchain_chat_history.extend(ml)
+            else:
+                langchain_chat_history.append(ml)
+        
+        # Create the prompt for the LLM
+        prompt = ChatPromptTemplate(
+            messages=[
+                SystemMessage(content=system_prompt.rstrip().lstrip()),
+                *(langchain_chat_history),
+            ]
+        )
+
+        if procedures:
+            llm = cat._llm.bind_tools(self._to_langchain_tools(procedures.values()))
+        else:
+            llm = cat._llm
+
+        # Create the chain for tool selection
+        chain = (
+            prompt
+            | RunnableLambda(lambda x: langchain_log_prompt(x, chain_name))
+            | llm
+            | RunnableLambda(lambda x: langchain_log_output(x, f"{chain_name} - LLM output"))
+        )
+        
+        # Execute the chain
+        res: AIMessage = chain.invoke(
+            {},
+            config=RunnableConfig(callbacks=[
+                ModelInteractionHandler(cat, get_caller_info(skip=1))
+            ])
+        )
+
+        call_results = []
+
+        response_text = res.content.strip() if res.content else ""
+        if response_text:
+            call_results.append(AgentOutput(output=response_text, return_direct=True))
+
+        if len(res.tool_calls) > 0:
+            valid_calls = [
+                LLMAction(
+                    name=res.tool_calls[i]["name"],
+                    input=res.tool_calls[i]["args"],
+                    id=res.tool_calls[i]["id"],
+                )
+                for i in range(min(max_procedures_calls, len(res.tool_calls)))
+                if res.tool_calls[i]["name"] in procedures.keys()
+            ]
+
+            for tool_call in valid_calls:
+                action_result = self.execute_procedure(cat, procedures[tool_call.name], tool_call.input)
+                action_result.tool_call = tool_call
+                call_results.append(action_result)
+
+        return call_results
+            
+    def _to_langchain_tools(self, procedures: List[CatTool | CatForm]) -> List[Tool]:
+        """Convert Cheshire Cat procedures to LangChain tools."""
+        langchain_tools: List[Tool] = []
+        
+        for p in procedures:
+            if Plugin._is_cat_tool(p):
+                if getattr(p, "arg_schema", None) is not None:
+                    new_tool = StructuredTool(
+                        name=p.name,
+                        description=p.description,
+                        func=self.remove_cat_from_args(p.func),
+                        args_schema=p.arg_schema,
+                    )
+                else:
+                    new_tool = StructuredTool.from_function(
+                        name=p.name,
+                        description=p.description,
+                        func=self.remove_cat_from_args(p.func),
+                    )
+                langchain_tools.append(new_tool)
+                
+            elif Plugin._is_cat_form(p):
+                langchain_tools.append(
+                    Tool(
+                        name=p.name,
+                        description=p.description,
+                        func=None
+                    )
+                )
+        
+        # Add no_action tool
+        langchain_tools.append(
+            Tool(
+                name="no_action",
+                description="Use this action if no relevant action is available",
+                func=None,
+            )
+        )
+        
+        return langchain_tools
+    
+    @staticmethod
+    def remove_cat_from_args(function: Callable) -> Callable:
+        """Remove 'cat' and '_' parameters from function signature for LangChain compatibility."""
+        signature = inspect.signature(function)
+        parameters = list(signature.parameters.values())
+        
+        filtered_parameters = [p for p in parameters if p.name != 'cat' and p.name != '_']
+        new_signature = signature.replace(parameters=filtered_parameters)
+        
+        @functools.wraps(function)
+        def wrapper(*args, **kwargs):
+            if 'cat' in kwargs:
+                del kwargs['cat']
+            return function(*args, **kwargs)
+        
+        wrapper.__signature__ = new_signature
+        return wrapper
