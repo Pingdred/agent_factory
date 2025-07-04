@@ -2,16 +2,15 @@
 
 [![awesome plugin](https://custom-icon-badges.demolab.com/static/v1?label=&message=awesome+plugin&color=383938&style=for-the-badge&logo=cheshire_cat_ai)](https://)  [![Awesome plugin](https://custom-icon-badges.demolab.com/static/v1?label=&message=Awesome+plugin&color=000000&style=for-the-badge&logo=cheshire_cat_ai)](https://) [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/Pingdred/agent_factory)
 
-> **Transform your Cheshire Cat AI into a versatile agent powerhouse!**
 
-**Agent Factory** is a powerful plugin for Cheshire Cat AI that introduces a flexible factory pattern for creating and managing custom agents. Build specialized agents with native LLM Function Calling support, advanced tool integration, and seamless memory access.
+**Agent Factory** is a powerful plugin for Cheshire Cat AI that introduces a flexible factory pattern for creating and managing custom agents. Build specialized agents with native LLM Function Calling support, advanced tool integration, and easy memory access.
 
 ## 🎯 Why Agent Factory?
 
 - **🔧 Extensible Architecture**: Create specialized agents for different use cases
 - **⚡ Native Function Calling**: Built-in support for LLM Function Calling with multiple parameters
 - **🧠 Memory Integration**: Full access to Cheshire Cat's episodic and declarative memory
-- **🛠️ Tool Management**: Advanced input handling for complex tools and forms
+- **🛠️ Tool Management**: Advanced input handling for complex tools
 - **🎛️ Easy Management**: Simple UI-based agent selection and configuration
 
 ## ✨ Key Features
@@ -198,51 +197,6 @@ def get_recalled_declarative_memory(self, cat: StrayCat) -> List[Tuple[str, Dict
 def get_procedures(self, procedures_name: List[str]) -> Dict[str, CatTool | CatForm]:
     """Get procedures by name from the MadHatter."""
     pass
-```
-
-### 💡 Advanced Example: Smart Assistant Agent
-
-```python
-from typing import List, Set, Dict
-from langchain_core.tools import StructuredTool
-from cat.plugins.agent_factory import LangchainBaseAgent, AgentOutput, LLMAction
-from cat.log import log
-
-class SmartAssistantAgent(LangchainBaseAgent):
-    """An advanced agent with function calling capabilities."""
-    
-    def execute(self, cat: StrayCat) -> AgentOutput:
-        # Get user message
-        user_message = cat.working_memory.user_message_json
-        
-        # Get available procedures
-        recalled_procedures: Set[str] = self.get_recalled_procedures_names(cat)
-        log.info(f"Available procedures: {recalled_procedures}")
-        
-        # Access memory for context
-        episodic_memories = self.get_recalled_episodic_memory(cat)
-        declarative_memories = self.get_recalled_declarative_memory(cat)
-        
-        # Prepare context-aware system prompt
-        system_prompt = f"""You are a helpful assistant with access to tools: {list(recalled_procedures)}.
-        
-        Recent conversation context:
-        {[mem[0] for mem in episodic_memories[:3]]}
-        
-        Available knowledge:
-        {[mem[0] for mem in declarative_memories[:2]]}
-        
-        Analyze the user's request and use appropriate tools if needed."""
-        
-        # Query LLM with function calling support
-        response = self.run_chain(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_message.text}
-            ]
-        )
-        
-        return AgentOutput(output=response)
 ```
 
 ## 🔧 Troubleshooting
