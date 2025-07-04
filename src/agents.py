@@ -237,7 +237,7 @@ class LangchainBaseAgent(BaseAgent):
                 if settings.get("stream_tool_calls", True):
                     # Stream tool calls to the chat
                     cat.send_ws_message(
-                        f"Executing: `{tool_call[0]}`",
+                        f"Executing: `{tool_call[0]}`\n",
                         msg_type="chat_token"
                     )
 
