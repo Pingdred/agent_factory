@@ -1,18 +1,17 @@
-from typing import List, Tuple
+"""
+Agent Factory Plugin Main Module
+
+This module handles the registration of agents and manages the agent selection process.
+It provides hooks for other plugins to register their custom agents and automatically
+sets the selected agent based on plugin settings.
+"""
 
 from cat.mad_hatter.decorators import hook
 from cat.looking_glass.cheshire_cat import CheshireCat
 from cat.log import log
 
-from .agent.base import BaseAgent
-from .agent.main_agent import MainAgent as NativeFcAgent
+from .agents import BaseAgent
 
-@hook
-def plugin_factory_allowed_agents(agents: List[Tuple[BaseAgent, str, str]], cat) -> list:
-    agents.append(
-        (NativeFcAgent, "STANDARD_WITH_FC", "Native Function Calling")
-    )
-    return agents
 
 def _set_agent() -> None:
     cat = CheshireCat()
