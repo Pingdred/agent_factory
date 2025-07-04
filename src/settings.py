@@ -9,7 +9,7 @@ from cat.looking_glass.cheshire_cat import CheshireCat
 from cat.agents.main_agent import MainAgent as CatMainAgent
 from cat.log import log
 
-from .agent.base import BaseAgent
+from .agents import BaseAgent
 
 def load_allowed_agents(cat: CheshireCat) -> List[Tuple[BaseAgent, str, str]]:
     agents: List = MadHatter().execute_hook(
@@ -34,11 +34,6 @@ def settings_model() -> BaseModel:
             title="Agents",
             description="Select the agent to use.",
             default=AgentEnum.DEFAULT,
-        )
-        max_tools_call: int = Field(
-            title="Max tools call (Only for Native FC)",
-            default=3,
-            description="Maximum number of tools to call in a single interaction.",
         )
 
         @field_validator("agent", mode='before')
