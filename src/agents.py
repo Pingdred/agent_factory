@@ -7,7 +7,7 @@ It includes the base agent functionality and the LangChain-based agent implement
 
 import inspect
 import functools
-from typing import Dict, List, Set, Tuple, Callable
+from typing import Dict, List, Set, Tuple, Callable, Any
 
 from langchain_core.documents import Document
 from langchain.prompts import ChatPromptTemplate
@@ -21,6 +21,7 @@ from cat.mad_hatter.decorators.tool import CatTool
 from cat.experimental.form.cat_form import CatForm
 from cat.agents.base_agent import AgentOutput
 from cat.agents.base_agent import BaseAgent as CatBaseAgent
+from cat.agents.form_agent import FormAgent
 from cat.looking_glass.stray_cat import StrayCat
 from cat.looking_glass.callbacks import ModelInteractionHandler
 from cat.memory.working_memory import MAX_WORKING_HISTORY_LENGTH
@@ -53,6 +54,9 @@ def _execute_tool(cat: StrayCat, tool: CatTool, tool_input: str | Dict) -> Agent
             output=error_msg
         )
 
+    # Ensure the output is a string or None, 
+    if (tool_output is not None) and (not isinstance(tool_output, str)):
+        tool_output = str(tool_output)
 
 def _execute_form(cat: StrayCat, form: CatForm) -> AgentOutput:
     """Execute a CatForm."""
@@ -70,6 +74,10 @@ def _execute_form(cat: StrayCat, form: CatForm) -> AgentOutput:
             output=error_msg
         )
 
+def _execute_form(cat: StrayCat, form: CatForm) -> AgentOutput:
+    form_instance = form(cat)
+    cat.working_memory.active_form = form_instance
+    return FormAgent().execute(cat)
 
 class BaseAgent(CatBaseAgent):
     """
