@@ -41,7 +41,7 @@ class CatToolMessage(CatMessage):
         """Convert to LangChain format for chat history."""
         # Message to represent the tool called
         tool_call = AIMessage(
-            content=f"Tool Call: {self.action.name}",
+            content=[], # No content in AIMessage, as it represents a tool call
             tool_calls=[
                 ToolCall(
                     name=self.action.name,
