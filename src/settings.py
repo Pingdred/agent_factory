@@ -11,18 +11,18 @@ from cat.log import log
 
 from .agents import BaseAgent
 
-def load_allowed_agents(cat: CheshireCat) -> List[Tuple[BaseAgent, str, str]]:
+def load_allowed_agents() -> List[Tuple[BaseAgent, str, str]]:
     agents: List = MadHatter().execute_hook(
         "plugin_factory_allowed_agents",
         [],
-        cat=cat
+        cat=CheshireCat()
     )
     agents.insert(0,(CatMainAgent, "DEFAULT", "Default agent"))
     return agents   
 
 @plugin
 def settings_model() -> BaseModel:
-    allowed_agents = load_allowed_agents(CheshireCat())
+    allowed_agents = load_allowed_agents()
     enum_agents_dict = {agent[1]: agent[2] for agent in allowed_agents}
     AgentEnum = Enum(
         "Agents", 
