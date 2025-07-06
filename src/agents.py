@@ -79,11 +79,12 @@ class BaseAgent(CatBaseAgent):
         pass
 
     @staticmethod
-    def execute_procedure(cat: StrayCat, procedure: CatTool | CatForm, input: str | Dict) -> LLMAction:
+    def execute_procedure(procedure: CatTool | CatForm, input: str | Dict, cat: StrayCat, call_id: str| None = None) -> LLMAction:
         """Execute a procedure (tool or form) with the given input."""
         try:
             if Plugin._is_cat_tool(procedure):
-                return _execute_tool(cat, procedure, input)
+                res = _execute_tool(cat, procedure, input)
+                return LLMAction(call_id=call_id, **res.__dict__)
             
             if Plugin._is_cat_form(procedure):
                 return _execute_form(cat, procedure)
