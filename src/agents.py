@@ -262,14 +262,14 @@ class LangchainBaseAgent(BaseAgent):
             if Plugin._is_cat_tool(p):
                 if getattr(p, "arg_schema", None) is not None:
                     new_tool = StructuredTool(
-                        name=p.name,
+                        name=p.name.strip().replace(" ", "_"),
                         description=p.description,
                         func=self.remove_cat_from_args(p.func),
                         args_schema=p.arg_schema,
                     )
                 else:
                     new_tool = StructuredTool.from_function(
-                        name=p.name,
+                        name=p.name.strip().replace(" ", "_"),
                         description=p.description,
                         func=self.remove_cat_from_args(p.func),
                     )
@@ -278,7 +278,7 @@ class LangchainBaseAgent(BaseAgent):
             elif Plugin._is_cat_form(p):
                 langchain_tools.append(
                     Tool(
-                        name=p.name,
+                        name=p.name.strip().replace(" ", "_"),
                         description=p.description,
                         func=None
                     )
