@@ -81,6 +81,15 @@ class BaseAgent(CatBaseAgent):
     @staticmethod
     def execute_procedure(procedure: CatTool | CatForm, input: str | Dict, cat: StrayCat, call_id: str| None = None) -> LLMAction:
         """Execute a procedure (tool or form) with the given input."""
+
+        settings = cat.mad_hatter.get_plugin().load_settings()
+        if settings.get("stream_tool_calls", True):
+            # Stream tool calls to the chat
+            cat.send_ws_message(
+                f"Executing: `{procedure.name}`\n",
+                msg_type="chat_token"
+            )
+
         try:
             if Plugin._is_cat_tool(procedure):
                 res = _execute_tool(cat, procedure, input)
