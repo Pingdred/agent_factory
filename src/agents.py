@@ -109,8 +109,17 @@ class BaseAgent(CatBaseAgent):
             f"Unknown procedure type: {type(procedure)}. "
             "Expected CatTool or CatForm."
         )
+    
+    def execute_action(self, action: LLMAction, cat: StrayCat) -> LLMAction:
+        procedure = self.get_procedures([action.name])[action.name]
 
-    def save_procedure_result(self, action: LLMAction, cat) -> None:
+        if not procedure:
+            log.error(f"Action {action.name} not found.")
+            raise ValueError(f"Action {action.name} not found.")
+        
+        return self.execute_procedure(procedure, action.input, cat, call_id=action.id)
+    
+    def save_action(self, action: LLMAction, cat: StrayCat) -> None:
         """Save the action result in the chat history."""
         action_call = CatToolMessage(
             user_id=cat.user_id,
@@ -171,11 +180,12 @@ class LangchainBaseAgent(BaseAgent):
         procedures: Dict[str, CatTool | CatForm] = {},
         chat_history: List[CatMessage | HumanMessage] | None = None,
         max_procedures_calls: int = 1,
+        execute_procedures: bool = True,
         chain_name: str = "Langchain Chain",
     ) -> AgentOutput:
         """
         Run a LangChain chain with function calling capabilities.
-        
+
         Parameters
         ----------
             cat: StrayCat
@@ -188,14 +198,62 @@ class LangchainBaseAgent(BaseAgent):
                 The chat history to use for the LLM
             max_procedures_calls: int
                 The maximum number of procedures the LLM can call
+            execute_procedures: bool
+                Whether to execute the procedures or just return the calls
             chain_name: str
                 The name of the chain for logging purposes
 
         Returns
         -------
-            List[AgentOutput]
-                List of outputs from the LLM and executed procedures
+            AgentOutput
+                Output from the LLM and executed procedures
         """
+        # Prepare chat history
+        langchain_chat_history = self._prepare_chat_history(cat, chat_history)
+
+        # Create prompt template
+        prompt = self._create_prompt_template(system_prompt, langchain_chat_history)
+
+        # Prepare LLM with tools if available
+        llm = cat._llm
+        if procedures:
+            langchain_tools = self._to_langchain_tools(procedures.values())
+            llm = cat._llm.bind_tools(langchain_tools)
+
+        # Create and execute the chain
+        res = self._execute_prompt(
+            prompt=prompt, llm=llm, chain_name=chain_name, cat=cat
+        )
+
+        procedures = {k.strip().replace(" ", "_"): v for k,v in procedures.items()}
+
+        # Filter valid tool calls
+        valid_calls = [
+            LLMAction(
+                id=res.tool_calls[i]["id"],
+                name=res.tool_calls[i]["name"],
+                input=res.tool_calls[i]["args"],
+                return_direct=getattr(procedures[res.tool_calls[i]["name"]], "return_direct", True),  # Default to True if not set
+            )
+            for i in range(min(max_procedures_calls, len(res.tool_calls)))
+            if res.tool_calls[i]["name"] in procedures.keys()
+        ]
+
+        # Execute procedures if requested
+        if execute_procedures:
+            valid_calls = [
+                self.execute_action(tool_call, cat) for tool_call in valid_calls
+            ]
+
+        # Ensure the llm message is a non-empty string or None
+        text_output = res.text() if res.text() else None
+
+        return AgentOutput(
+            output=text_output,
+            actions=valid_calls,
+        )
+
+    def _prepare_chat_history(self, cat: StrayCat, chat_history: List[CatMessage | HumanMessage] | None = None) -> List:
         if chat_history is None:
             chat_history = cat.working_memory.history[-MAX_WORKING_HISTORY_LENGTH:]
         
@@ -207,29 +265,25 @@ class LangchainBaseAgent(BaseAgent):
             else:
                 langchain_chat_history.append(ml)
         
-        # Create the prompt for the LLM
-        prompt = ChatPromptTemplate(
+        return langchain_chat_history
+
+    def _create_prompt_template(self, system_prompt: str, langchain_chat_history: List) -> ChatPromptTemplate:
+        return ChatPromptTemplate(
             messages=[
                 SystemMessage(content=system_prompt.rstrip().lstrip()),
-                *(langchain_chat_history),
+                *langchain_chat_history,
             ]
         )
 
-        if procedures:
-            llm = cat._llm.bind_tools(self._to_langchain_tools(procedures.values()))
-        else:
-            llm = cat._llm
-
-        # Create the chain for tool selection
+    def _execute_prompt(self, prompt: ChatPromptTemplate, llm, chain_name: str, cat: StrayCat) -> AIMessage:
         chain = (
             prompt
             | RunnableLambda(lambda x: langchain_log_prompt(x, chain_name))
             | llm
             | RunnableLambda(lambda x: langchain_log_output(x, f"{chain_name} - LLM output"))
         )
-        
-        # Execute the chain
-        res: AIMessage = chain.invoke(
+
+        return chain.invoke(
             {},
             config=RunnableConfig(callbacks=[
                 NewTokenHandler(cat),
@@ -237,36 +291,6 @@ class LangchainBaseAgent(BaseAgent):
             ])
         )
 
-        tool_calls: List[LLMAction] = []
-        if len(res.tool_calls) > 0:
-            valid_calls = [
-                (res.tool_calls[i]["name"], res.tool_calls[i]["args"], res.tool_calls[i]['id'])
-                for i in range(min(max_procedures_calls, len(res.tool_calls)))
-                if res.tool_calls[i]["name"] in procedures.keys()
-            ]
-
-            for tool_call in valid_calls:
-                settings = cat.mad_hatter.get_plugin().load_settings()
-                if settings.get("stream_tool_calls", True):
-                    # Stream tool calls to the chat
-                    cat.send_ws_message(
-                        f"Executing: `{tool_call[0]}`\n",
-                        msg_type="chat_token"
-                    )
-
-                action_result = self.execute_procedure(cat, procedures[tool_call[0]], tool_call[1])
-
-                # Set the id given by the LLM for the tool call
-                # this is required by the LLM api to match the tool call with the result
-                action_result.id = tool_call[2] 
-
-                tool_calls.append(action_result)
-
-        return AgentOutput(
-            output=res.text() if res.text() else None,
-            actions=tool_calls,
-        )
-            
     def _to_langchain_tools(self, procedures: List[CatTool | CatForm]) -> List[Tool]:
         """Convert Cheshire Cat procedures to LangChain tools."""
         langchain_tools: List[Tool] = []
