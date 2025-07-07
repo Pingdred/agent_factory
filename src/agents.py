@@ -93,10 +93,13 @@ class BaseAgent(CatBaseAgent):
         try:
             if Plugin._is_cat_tool(procedure):
                 res = _execute_tool(cat, procedure, input)
-                return LLMAction(call_id=call_id, **res.__dict__)
+                res.id = call_id  # Preserve the original call ID, required by the LLM api to match the tool call with the result
+                return res
             
             if Plugin._is_cat_form(procedure):
-                return _execute_form(cat, procedure)
+                res = _execute_form(cat, procedure)
+                res.id = call_id  # Preserve the original call ID, required by the LLM api to match the tool call with the result
+                return res
             
         except Exception as e:
             log.error(f"Error executing {procedure.procedure_type} `{procedure.name}`: {str(e)}")
