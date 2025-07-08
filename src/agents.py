@@ -111,13 +111,16 @@ class BaseAgent(CatBaseAgent):
         )
     
     def execute_action(self, action: LLMAction, cat: StrayCat) -> LLMAction:
-        procedure = self.get_procedures([action.name])[action.name]
+        procedures = self.get_procedures([action.name])
 
-        if not procedure:
+        if not procedures:
             log.error(f"Action {action.name} not found.")
             raise ValueError(f"Action {action.name} not found.")
         
-        return self.execute_procedure(procedure, action.input, cat, call_id=action.id)
+        # Select the firsr and only procedure from the dictionary
+        selected_procedure = list(procedures.values())[0]
+        
+        return self.execute_procedure(selected_procedure, action.input, cat, call_id=action.id)
     
     def save_action(self, action: LLMAction, cat: StrayCat) -> None:
         """Save the action result in the chat history."""
@@ -158,10 +161,18 @@ class BaseAgent(CatBaseAgent):
 
     def get_procedures(self, procedures_name: List[str]) -> Dict[str, CatTool | CatForm]:
         """Get procedures by name from the MadHatter."""
+        # Clean up procedure names to ensure they are valid identifiers
+        # LLM's API require tool names without spaces and special characters
+        procedures_name = [p.strip().replace(" ", "_") for p in procedures_name]
+
         allowed_procedures: Dict[str, CatTool | CatForm] = {}
         for procedure in MadHatter().procedures:
-            if procedure.name in procedures_name:
-                allowed_procedures[procedure.name] = procedure
+            # Ensure the procedure name is a valid identifier
+            # LLM's api require tool names without spaces and special characters
+            p_name = procedure.name.strip().replace(" ", "_")
+
+            if p_name in procedures_name:                
+                allowed_procedures[p_name] = procedure
         return allowed_procedures
 
 
