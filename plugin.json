@@ -1,6 +1,6 @@
 {
     "name": "Agent Factory",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "Extend the CheshireCat with a factory of agents. Create custom agents with native function calling support.",
     "author_name": "Emanuele Morrone",
     "author_url": "https://github.com/Pingdred",
