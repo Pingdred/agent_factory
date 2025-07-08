@@ -134,6 +134,20 @@ class BaseAgent(CatBaseAgent):
         )
         cat.working_memory.update_history(action_call)
 
+    def get_recalled_procedures(self, cat: StrayCat) -> Dict[str, CatTool | CatForm]:
+        """Get the recalled procedures from the working memory."""
+        recalled_procedures_names = self.get_recalled_procedures_names(cat)
+        if not recalled_procedures_names:
+            return {}
+
+        # Get the procedures by name from the MadHatter
+        procedures = self.get_procedures(list(recalled_procedures_names))
+        
+        if not procedures:
+            log.warning("No procedures found in the MadHatter for recalled names.")
+        
+        return procedures
+
     def get_recalled_procedures_names(self, cat: StrayCat) -> Set[str]:
         """Get the names of the recalled procedures from the working memory."""
         recalled_procedures_names = set()
