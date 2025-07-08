@@ -35,11 +35,17 @@ def load_allowed_agents() -> List[Tuple[BaseAgent, str, str]]:
         List of tuples where each tuple contains:
         (Agent class, Agent identifier string, Agent display name)
     """
-    agents: List = MadHatter().execute_hook(
-        "plugin_factory_allowed_agents",
-        [],
-        cat=CheshireCat()
-    )
+
+    try:
+        agents = MadHatter().execute_hook(
+            "plugin_factory_allowed_agents",
+            [],
+            cat=CheshireCat()
+        )
+    except Exception:
+        log.info("AGENT FACTORY: no agents found, using default agent.")
+        agents = []
+
     agents.insert(0,(CatMainAgent, "DEFAULT", "Default agent"))
     return agents   
 

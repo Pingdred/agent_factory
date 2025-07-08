@@ -25,29 +25,6 @@ def _set_agent() -> None:
     agent, and sets it as the main agent for the Cheshire Cat instance.
     It includes fallback logic to use the default agent if the selected
     agent is not found or available.
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    The function performs the following steps:
-    1. Load plugin settings to determine selected agent
-    2. Get available agents from the settings model
-    3. Look up the selected agent class
-    4. Fall back to default agent if selected agent is not found
-    5. Avoid re-setting if the agent is already correct
-    6. Set the new agent instance as the main agent
-
-    The function includes logging for debugging and error reporting.
-
-    Examples
-    --------
-    This function is called automatically by the hook system:
-
-        >>> # Called internally when agent needs to be set
-        >>> _set_agent()  # Sets agent based on current settings
     """
     cat = CheshireCat()
 
@@ -82,35 +59,5 @@ def before_cat_reads_message(_, cat):
     This hook ensures that the correct agent is set before processing
     each message, allowing for dynamic agent switching based on
     current plugin settings.
-
-    Parameters
-    ----------
-    _ : Any
-        Unused parameter (message data).
-    cat : CheshireCat
-        The Cheshire Cat instance that will process the message.
-
-    Returns
-    -------
-    None
-
-    Notes
-    -----
-    This hook is automatically called by the Cheshire Cat framework
-    before each message is processed. It ensures that any changes
-    to agent settings are reflected immediately in the active agent.
-
-    The hook pattern allows for seamless integration with the
-    framework's message processing pipeline without modifying
-    core functionality.
-
-    Examples
-    --------
-    This is called automatically by the framework:
-
-        >>> # User sends a message
-        >>> # Hook is triggered automatically
-        >>> before_cat_reads_message(message_data, cat_instance)
-        >>> # Correct agent is now set for processing
     """
     _set_agent()
