@@ -18,7 +18,7 @@ from langchain_core.runnables import RunnableConfig, RunnableLambda
 from cat.mad_hatter.mad_hatter import MadHatter
 from cat.mad_hatter.plugin import Plugin
 from cat.mad_hatter.decorators.tool import CatTool
-from cat.experimental.form.cat_form import CatForm
+from cat.experimental.form.cat_form import CatForm, CatFormState
 from cat.agents.base_agent import BaseAgent as CatBaseAgent
 from cat.agents.form_agent import FormAgent
 from cat.looking_glass.stray_cat import StrayCat
@@ -49,7 +49,6 @@ def _execute_tool(cat: StrayCat, tool: CatTool, input: Dict[str, Any]) -> LLMAct
         return_direct=tool.return_direct
     )
 
-
 def _execute_form(cat: StrayCat, form: CatForm) -> LLMAction:
     form_instance = form(cat)
     cat.working_memory.active_form = form_instance
@@ -62,6 +61,7 @@ def _execute_form(cat: StrayCat, form: CatForm) -> LLMAction:
         output=form_output.output,
         return_direct=True,  # Forms typically return direct output
     )
+
 
 class BaseAgent(CatBaseAgent):
     """
@@ -156,6 +156,33 @@ class BaseAgent(CatBaseAgent):
         """Get the recalled declarative memory from the working memory."""
         return self._memory_points_to_tuple(cat.working_memory.declarative_memories)
     
+    def handle_active_form(self,cat: StrayCat) -> AgentOutput | None:
+        # get active form from working memory
+        active_form = cat.working_memory.active_form
+        
+        if not active_form:
+            # no active form
+            return None
+        
+        if active_form._state == CatFormState.CLOSED:
+            # form is closed, delete it from working memory
+            cat.working_memory.active_form = None
+            return None
+        
+        # continue form
+        try:
+            form_output = active_form.next()
+            return AgentOutput(
+                output=form_output["output"],
+                actions=[LLMAction(
+                    action=active_form.name,
+                    action_input=active_form._model
+                )]
+            )
+        except Exception:
+            log.error("Error while executing form")
+            return None
+
     def _memory_points_to_tuple(self, memory_points: List[Tuple[Document, ]]) -> List[Tuple[str, Dict]]:
         """Convert memory points to tuples of (text, metadata)."""
         return [
