@@ -90,6 +90,10 @@ class BaseAgent(CatBaseAgent):
                 msg_type="chat_token"
             )
 
+        if settings.get("notify_tool_calls", False):
+            # Notify the user about the tool call
+            cat.send_notification(f"Executing: `{procedure.name}`")
+
         try:
             if Plugin._is_cat_tool(procedure):
                 res = _execute_tool(cat, procedure, input)

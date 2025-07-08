@@ -39,6 +39,11 @@ def settings_model() -> BaseModel:
             title="Stream Tool Calls",
             default=True,
         )
+        notify_tool_calls: bool = Field(
+            title="Notify Tool Calls",
+            default=False,
+            description="Send notifications when a tool call is made."
+        )
         
         @field_validator("agent", mode='before')
         @classmethod
