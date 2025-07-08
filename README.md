@@ -16,7 +16,7 @@
 ## ✨ Key Features
 
 ### 🔌 Extensible Agent System
-Create custom agents by inheriting from `LangchainBaseAgent` - build anything from simple chatbots to complex task-oriented agents.
+Create custom agents by inheriting from `BaseAgent` or `LangchainBaseAgent` - build agents with advanced function calling capabilities and memory access.
 
 ### 🎯 Native Function Calling
 Full support for LLM Function Calling with automatic tool binding. Define tools with any number of parameters:
@@ -68,14 +68,13 @@ Create a new Python file in your plugin (e.g., `agents/echo_agent.py`):
 from cat.looking_glass.stray_cat import StrayCat
 from cat.plugins.agent_factory import LangchainBaseAgent 
 from cat.plugins.agent_factory import AgentOutput
-from cat.convo.messages import UserMessage
 
 class EchoAgent(LangchainBaseAgent):
     """A simple agent that echoes user messages with a twist."""
     
     def execute(self, cat: StrayCat) -> AgentOutput:
-        # Get the user's message
-        user_message: UserMessage = cat.working_memory.user_message_json
+        # Get the user's message from working memory
+        user_message = cat.working_memory.user_message_json
         
         # Create a response with some personality
         response = f"🔄 Echo: {user_message.text}\n\nDid you know I'm powered by Agent Factory?"
@@ -90,13 +89,13 @@ In your plugin's main file or `__init__.py`, register the agent:
 ```python
 from typing import List, Tuple
 from cat.mad_hatter.decorators import hook
-from cat.plugins.agent_factory import LangchainBaseAgent
+from cat.plugins.agent_factory import BaseAgent
 
 # Import your custom agent
 from .agents.echo_agent import EchoAgent
 
 @hook
-def plugin_factory_allowed_agents(agents: List, cat) -> List[Tuple[LangchainBaseAgent, str, str]]:
+def plugin_factory_allowed_agents(agents: List, cat) -> List[Tuple[BaseAgent, str, str]]:
     """Register custom agents with the factory."""
     agents.append(
         (EchoAgent, "ECHO_AGENT", "Echo Agent - Simple Message Repeater")
@@ -124,11 +123,11 @@ def plugin_factory_allowed_agents(agents: List, cat) -> List[Tuple[LangchainBase
 ├─────────────────────────────────────────────────────────────┤
 │                   Agent Factory Plugin                      │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐  │
-│  │   BaseAgent     │  │ LangchainBase   │  │   Custom    │  │
+│  │    BaseAgent    │  │ LangchainBase   │  │   Custom    │  │
 │  │                 │  │     Agent       │  │   Agents    │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────┘  │
 ├─────────────────────────────────────────────────────────────┤
-│  Function Calling │ Memory Access │ Tool Integration        │
+│     Function Calling │ Memory Access │ Tool Integration     │
 ├─────────────────────────────────────────────────────────────┤
 │          Cheshire Cat Core (Memory, Tools, Forms)           │
 └─────────────────────────────────────────────────────────────┘
@@ -162,21 +161,30 @@ The `LangchainBaseAgent` base class provides powerful utilities:
 #### 🔗 LLM Interaction
 ```python
 def run_chain(self, 
-              messages: List,
-              prompt_prefix: str = "", 
-              tools: List[StructuredTool] = None) -> str:
-    """Query the LLM with messages and optional tools."""
+              cat: StrayCat,
+              system_prompt: str,
+              procedures: Dict[str, CatTool | CatForm] = {},
+              chat_history: List[CatMessage | HumanMessage] | None = None,
+              max_procedures_calls: int = 1,
+              execute_procedures: bool = True,
+              chain_name: str = "Langchain Chain") -> AgentOutput:
+    """Run a LangChain chain with function calling capabilities."""
     pass
 ```
 
 #### ⚡ Action Execution
 ```python
-def execute_procedure(cat: StrayCat, procedure: CatTool | CatForm, input: Dict) -> LLMAction:
+@staticmethod
+def execute_procedure(procedure: CatTool | CatForm, input: str | Dict, cat: StrayCat, call_id: str | None = None) -> LLMAction:
     """Execute a tool or form procedure with the given input."""
     pass
 
-def save_procedure_result(self, action: LLMAction, cat: StrayCat) -> None:
-    """Save procedure results to chat history."""
+def execute_action(self, action: LLMAction, cat: StrayCat) -> LLMAction:
+    """Execute an action and return the result."""
+    pass
+
+def save_action(self, action: LLMAction, cat: StrayCat) -> None:
+    """Save action results to chat history."""
     pass
 ```
 
@@ -194,10 +202,32 @@ def get_recalled_declarative_memory(self, cat: StrayCat) -> List[Tuple[str, Dict
     """Access recalled declarative memory as (text, metadata) tuples."""
     pass
 
+def get_recalled_procedures(self, cat: StrayCat) -> Dict[str, CatTool | CatForm]:
+    """Get the recalled procedures from the MadHatter."""
+    pass
+
 def get_procedures(self, procedures_name: List[str]) -> Dict[str, CatTool | CatForm]:
     """Get procedures by name from the MadHatter."""
     pass
+
+def handle_active_form(self, cat: StrayCat) -> AgentOutput | None:
+    """Handle active forms in the working memory."""
+    pass
 ```
+
+## 🔧 Configuration Settings
+
+The Agent Factory plugin provides several configuration options:
+
+### Settings Available in Admin Panel
+
+- **Agent Selection**: Choose which agent to use from the dropdown menu
+- **Stream Tool Calls**: Enable/disable streaming of tool call execution messages to the chat
+- **Notify Tool Calls**: Enable/disable notifications when tools are executed
+
+### Plugin Settings Management
+
+The plugin automatically loads settings and manages agent switching without requiring restarts. If an invalid agent is selected, it automatically falls back to the default Cheshire Cat agent.
 
 ## 🔧 Troubleshooting
 
@@ -229,6 +259,14 @@ def get_procedures(self, procedures_name: List[str]) -> Dict[str, CatTool | CatF
 - Ensure proper method calls (`get_recalled_episodic_memory`, etc.)
 - Check memory retrieval settings in Cheshire Cat configuration
 
+#### Form Handling Issues
+**Problem**: Forms are not being handled correctly by the agent.
+
+**Solutions**:
+- Ensure your agent calls `self.handle_active_form(cat)` at the beginning of the `execute` method
+- Check that forms are properly registered in Cheshire Cat
+- Verify form state management in the working memory
+
 ##  License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
