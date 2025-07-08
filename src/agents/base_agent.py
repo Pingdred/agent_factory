@@ -313,8 +313,8 @@ class BaseAgent(CatBaseAgent):
             return AgentOutput(
                 output=form_output["output"],
                 actions=[LLMAction(
-                    action=active_form.name,
-                    action_input=active_form._model
+                    name=active_form.name,
+                    input=active_form._model
                 )]
             )
         except Exception:
