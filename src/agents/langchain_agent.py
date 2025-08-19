@@ -114,7 +114,7 @@ class LangchainBaseAgent(BaseAgent):
             ]
 
         # Ensure the llm message is a non-empty string or None
-        text_output = res.text() if res.text() else None
+        text_output = res.content if res.content else None
 
         return AgentOutput(
             output=text_output,
@@ -278,7 +278,6 @@ class LangchainBaseAgent(BaseAgent):
                 func=None,
             )
         )
-        
         return langchain_tools
     
     @staticmethod
